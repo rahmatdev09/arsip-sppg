@@ -1,9 +1,9 @@
 {
-  "short_name": "CloudDrive",
-  "name": "CloudDrive PWA Client",
+  "short_name": "Arsip SPPG Tanjung Pering 2",
+  "name": "Arsip SPPG Tanjung Pering 2",
   "icons": [
     {
-      "src": "https://www.gstatic.com/images/branding/product/1x/gsa_android_64dp.png",
+      "src": "logo.png",
       "type": "image/png",
       "sizes": "64x64"
     }
