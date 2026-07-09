@@ -1,0 +1,16 @@
+{
+  "short_name": "CloudDrive",
+  "name": "CloudDrive PWA Client",
+  "icons": [
+    {
+      "src": "https://www.gstatic.com/images/branding/product/1x/gsa_android_64dp.png",
+      "type": "image/png",
+      "sizes": "64x64"
+    }
+  ],
+  "start_url": "/index.html",
+  "background_color": "#4f46e5",
+  "theme_color": "#4f46e5",
+  "display": "standalone",
+  "orientation": "portrait"
+}
