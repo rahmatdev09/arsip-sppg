@@ -1,5 +1,11 @@
-const CACHE_NAME = "clouddrive-v1";
-const ASSETS = ["./", "./index.html", "./app.js", "./manifest.json"];
+const CACHE_NAME = "arsipsppg-v1";
+const ASSETS = [
+  "./",
+  "./index.html",
+  "./app.js",
+  "./manifest.json",
+  "./logo.png",
+];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)));
