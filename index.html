@@ -65,33 +65,82 @@
         >
       </div>
     </div>
-
     <div
       id="login-screen"
-      class="flex flex-col items-center justify-center h-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-700"
+      class="flex flex-col items-center justify-center h-full bg-slate-950 relative overflow-hidden"
     >
       <div
-        class="bg-white p-10 rounded-3xl shadow-2xl text-center max-w-md w-full mx-4"
+        class="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-indigo-600/20 rounded-full blur-[120px] pointer-events-none"
+      ></div>
+      <div
+        class="absolute bottom-[-25%] right-[-10%] w-[600px] h-[600px] bg-purple-600/15 rounded-full blur-[140px] pointer-events-none"
+      ></div>
+
+      <div
+        class="relative backdrop-blur-xl bg-white/[0.03] border border-white/[0.08] p-8 md:p-10 rounded-[32px] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] text-center max-w-md w-full mx-4 transition-all duration-300 hover:border-white/[0.15]"
       >
         <div
-          class="w-24 h-24 rounded-2xl flex items-center justify-center mx-auto mb-6 text-indigo-600 text-4xl shadow-inner"
+          class="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-white/[0.1] shadow-inner relative group"
         >
-          <img src="logo.png" class="rounded-full" alt="" />
+          <img
+            src="logo.png"
+            class="w-14 h-14 object-contain rounded-xl transition-transform duration-500 group-hover:scale-105"
+            alt="Logo"
+          />
         </div>
-        <h1 class="text-2xl font-extrabold text-slate-900 mb-2">
+
+        <h1
+          class="text-2xl font-bold tracking-tight text-white mb-2.5 bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent"
+        >
           Arsip SPPG Tanjung Pering 2
         </h1>
-        <p class="text-slate-500 mb-8 text-sm">
+        <p
+          class="text-slate-400 mb-8 text-sm leading-relaxed font-light max-w-sm mx-auto"
+        >
           Sistem Manajemen Berkas Digital Terintegrasi Cloud & Keamanan Lajur
           Ganda.
         </p>
-        <button
-          id="btn-login"
-          class="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3 px-6 rounded-xl transition flex items-center justify-center gap-3 shadow-lg"
-        >
-          <i class="fa-brands fa-google text-xl text-white"></i>
-          Masuk dengan Google Workspace
-        </button>
+
+        <div class="space-y-5 w-full">
+          <button
+            id="auth-button"
+            class="w-full relative group overflow-hidden bg-white text-slate-950 font-semibold py-3.5 px-4 rounded-xl transition-all duration-300 hover:bg-slate-50 hover:shadow-[0_0_30px_rgba(255,255,255,0.15)] flex items-center justify-center gap-3 text-sm active:scale-[0.98]"
+          >
+            <i
+              class="fa-brands fa-google text-base text-indigo-600 transition-transform group-hover:scale-110"
+            ></i>
+            <span>Masuk dengan Google Drive</span>
+          </button>
+
+          <div class="flex items-center justify-center gap-2.5 pt-1">
+            <div class="relative flex items-center">
+              <input
+                type="checkbox"
+                id="remember-me"
+                class="peer appearance-none w-4 h-4 border border-slate-700 rounded bg-slate-900/50 checked:bg-indigo-600 checked:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 cursor-pointer transition-all"
+                checked
+              />
+              <svg
+                class="absolute w-2.5 h-2.5 text-white top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 hidden peer-checked:block pointer-events-none"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <label
+              for="remember-me"
+              class="text-xs text-slate-400 select-none cursor-pointer font-medium transition-colors hover:text-slate-300"
+            >
+              Biarkan saya tetap masuk
+            </label>
+          </div>
+        </div>
       </div>
     </div>
 
