@@ -8,7 +8,7 @@
       "sizes": "64x64"
     }
   ],
-  "start_url": "/index.html",
+  "start_url": "/arsip-sppg/index.html",
   "background_color": "#4f46e5",
   "theme_color": "#4f46e5",
   "display": "standalone",
