@@ -147,6 +147,7 @@ function showSuccessModal(message = "Aksi berhasil diproses.") {
 function gapiLoaded() {
   gapi.load("client", initializeGapiClient);
 }
+// 1. MODIFIKASI FUNGSI INITIALIZEGAPICLIENT ANDA
 async function initializeGapiClient() {
   try {
     await gapi.client.init({
@@ -156,9 +157,70 @@ async function initializeGapiClient() {
       ],
     });
     gapiInited = true;
-    checkAuthProgress();
+
+    // --- PINDAHKAN PENGECEKAN TOKEN KE SINI ---
+    // Dipanggil tepat setelah GAPI Client terinisialisasi dengan sempurna
+    const savedToken = localStorage.getItem("gdrive_access_token");
+    const tokenExpiry = localStorage.getItem("gdrive_token_expiry");
+
+    if (savedToken && tokenExpiry && Date.now() < parseInt(tokenExpiry)) {
+      // Pasang token lama ke instance GAPI yang sudah siap
+      gapi.client.setToken({ access_token: savedToken });
+
+      // Sembunyikan halaman login, tampilkan dashboard utama
+      document.getElementById("login-page")?.classList.add("hidden");
+      document.getElementById("main-dashboard")?.classList.remove("hidden");
+
+      // Muat data folder utama langsung
+      setTimeout(() => {
+        if (typeof loadFolderContent === "function") {
+          loadFolderContent("root");
+        }
+      }, 500);
+    } else {
+      // Jika token tidak ada atau kedaluwarsa, jalankan alur auth biasa bawaan Anda
+      checkAuthProgress();
+    }
+    // ------------------------------------------
   } catch (error) {
-    console.error(error);
+    console.error("GAPI Init Error:", error);
+  }
+}
+
+// 2. PASTIKAN FUNGSI CALLBACK DI GISLOADED SUDAH MENYIMPAN TOKEN BARU
+function handleAuthCallback(resp) {
+  if (resp.error !== undefined) {
+    throw resp;
+  }
+
+  // Catat token baru dan waktu kedaluwarsanya saat pengguna berhasil klik login manual
+  const accessToken = resp.access_token;
+  const expiryTime = Date.now() + parseInt(resp.expires_in || 3600) * 1000;
+
+  localStorage.setItem("gdrive_access_token", accessToken);
+  localStorage.setItem("gdrive_token_expiry", expiryTime);
+
+  // Sembunyikan login page & tampilkan dashboard utama
+  document.getElementById("login-page")?.classList.add("hidden");
+  document.getElementById("main-dashboard")?.classList.remove("hidden");
+
+  if (typeof loadFolderContent === "function") {
+    loadFolderContent("root");
+  }
+}
+
+// 3. PERBARUI JUGA FUNGSI LOGOUT ANDA (Jika ada)
+// Pastikan menghapus token dari memori browser agar ketika diklik keluar benar-benar meminta login kembali
+function handleSignoutClick() {
+  const token = gapi.client.getToken();
+  if (token !== null) {
+    google.accounts.oauth2.revokeToken(token.access_token, () => {
+      gapi.client.setToken("");
+      // Bersihkan penyimpanan lokal secara menyeluruh
+      localStorage.removeItem("gdrive_access_token");
+      localStorage.removeItem("gdrive_token_expiry");
+      window.location.reload();
+    });
   }
 }
 function gisLoaded() {
@@ -175,29 +237,37 @@ function gisLoaded() {
   }
 }
 function checkAuthProgress() {
-  const loginBtn = document.getElementById("btn-login");
-  const savedToken = localStorage.getItem("gapi_stored_token");
+  if (gapiInited && gisInited) {
+    // 1. Cek token di localStorage (Remember Me) atau sessionStorage (Sesi sementara)
+    const savedToken =
+      localStorage.getItem("gdrive_access_token") ||
+      sessionStorage.getItem("gdrive_access_token");
+    const tokenExpiry =
+      localStorage.getItem("gdrive_token_expiry") ||
+      sessionStorage.getItem("gdrive_token_expiry");
 
-  // Jika ada token tersimpan di browser dan belum kedaluwarsa, langsung login
-  if (gapiInited && gisInited && savedToken) {
-    const parsedToken = JSON.parse(savedToken);
-    if (Date.now() < parsedToken.expires_at) {
-      gapi.auth.setToken({ access_token: parsedToken.access_token });
-      executeAutoLoginSession();
-      return;
+    // 2. Jika token ada dan belum kedaluwarsa, bypass halaman login langsung
+    if (savedToken && tokenExpiry && Date.now() < parseInt(tokenExpiry)) {
+      gapi.client.setToken({ access_token: savedToken });
+
+      // Sembunyikan halaman login, tampilkan dashboard utama
+      document.getElementById("login-page")?.classList.add("hidden");
+      document.getElementById("main-dashboard")?.classList.remove("hidden");
+
+      // Muat data folder utama langsung secara otomatis
+      setTimeout(() => {
+        if (typeof loadFolderContent === "function") {
+          loadFolderContent("root");
+        }
+      }, 300);
     } else {
-      localStorage.removeItem("gapi_stored_token");
-    }
-  }
-
-  if (loginBtn) {
-    loginBtn.onclick = () => {
-      if (gapiInited && gisInited && tokenClient) {
-        tokenClient.requestAccessToken({ prompt: "consent" });
-      } else {
-        alert("Google SDK belum siap.");
+      // Jika tidak ada token valid, barulah tampilkan tombol login secara normal
+      const authBtn = document.getElementById("auth-button");
+      if (authBtn) {
+        authBtn.style.display = "inline-flex";
+        authBtn.onclick = handleAuthClick;
       }
-    };
+    }
   }
 }
 
@@ -215,6 +285,16 @@ async function executeAutoLoginSession() {
     console.error("Gagal memuat otomatis:", err);
   } finally {
     hideLoader();
+  }
+}
+
+// PERBAIKAN: Pastikan menggunakan deklarasi 'function' agar tidak memicu ReferenceError
+function handleAuthClick() {
+  if (tokenClient) {
+    // Meminta token baru ke Google dengan pop-up login resmi
+    tokenClient.requestAccessToken({ prompt: "consent" });
+  } else {
+    console.error("Google Token Client belum siap.");
   }
 }
 async function handleAuthCallback(resp) {
