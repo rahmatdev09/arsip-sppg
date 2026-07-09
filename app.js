@@ -25,6 +25,60 @@ const state = { items: [], lockedFolders: {} };
 window.gapiLoaded = gapiLoaded;
 window.gisLoaded = gisLoaded;
 
+// 1. TAMBAHKAN DI BAGIAN ATAS APP.JS (Setelah deklarasi state)
+document.addEventListener("DOMContentLoaded", () => {
+  // Cek apakah ada token aktif yang tersimpan di browser
+  const savedToken = localStorage.getItem("gdrive_access_token");
+  const tokenExpiry = localStorage.getItem("gdrive_token_expiry");
+
+  if (savedToken && tokenExpiry && Date.now() < parseInt(tokenExpiry)) {
+    // Pasang token lama ke instance GAPI tanpa perlu login ulang
+    gapi.client.setToken({ access_token: savedToken });
+
+    // Sembunyikan tombol login, tampilkan area dashboard utama
+    document.getElementById("login-page")?.classList.add("hidden");
+    document.getElementById("main-dashboard")?.classList.remove("hidden");
+
+    // Muat folder utama langsung
+    setTimeout(() => {
+      loadFolderContent("root");
+    }, 1000);
+  }
+});
+
+// 2. PERBARUI FUNGSI CALLBACK AUTHENTICATION ANDA
+// Cari tempat di mana tokenClient mendapatkan credential/token (biasanya di callback initTokenClient)
+// Tambahkan baris ini setelah token berhasil didapatkan:
+function fungsiCallbackTokenAnda(resp) {
+  if (resp.error !== undefined) {
+    throw resp;
+  }
+
+  // Simpan token ke localStorage
+  const accessToken = resp.access_token;
+  const expiryTime = Date.now() + parseInt(resp.expires_in) * 1000; // Biasanya 3600 detik (1 jam)
+
+  localStorage.setItem("gdrive_access_token", accessToken);
+  localStorage.setItem("gdrive_token_expiry", expiryTime);
+
+  // Lanjutkan proses load dashboard bawaan Anda...
+}
+
+// 3. TAMBAHKAN PADA FUNGSI LOGOUT ANDA
+// Pastikan menghapus token dari memori browser saat pengguna klik "Keluar"
+function handleSignoutClick() {
+  const token = gapi.client.getToken();
+  if (token !== null) {
+    google.accounts.oauth2.revokeToken(token.access_token, () => {
+      gapi.client.setToken("");
+      // Bersihkan penyimpanan lokal
+      localStorage.removeItem("gdrive_access_token");
+      localStorage.removeItem("gdrive_token_expiry");
+      window.location.reload();
+    });
+  }
+}
+
 // FORMAT BYTE CONVERTER
 function formatBytes(bytes, decimals = 2) {
   if (!bytes || bytes === "0" || isNaN(bytes)) return "0 Bytes";
@@ -355,6 +409,10 @@ document
 function renderExplorerUI() {
   const grid = document.getElementById("explorer-grid");
   const emptyState = document.getElementById("empty-state");
+
+  // ISI KODE INI DIMASUKKAN DI DALAM FUNGSI RENDER UTAMA FILE/FOLDER (Tempat mendengarkan klik item)
+  let touchTimeout;
+
   grid.innerHTML = "";
   if (state.items.length === 0) {
     emptyState.classList.remove("hidden");
@@ -412,6 +470,42 @@ function renderExplorerUI() {
                 <span class="text-xs text-slate-400 font-bold">${sizeString}</span>
             `;
     }
+
+    // Mendengarkan saat jari pertama kali menyentuh layar HP
+    element.addEventListener(
+      "touchstart",
+      (e) => {
+        // Hanya jalankan jika bukan dalam mode seleksi massal/trash
+        if (isTrashMode) return;
+
+        // Setel timer selama 600 milidetik (0.6 detik tahan lama)
+        touchTimeout = setTimeout(() => {
+          e.preventDefault();
+
+          // Trik memicu context menu kustom bawaan desktop Anda ke versi mobile
+          selectedItemCtx = item; // Daftarkan item aktif ke context menu state Anda
+
+          const contextMenu = document.getElementById("context-menu");
+          if (contextMenu) {
+            // Ambil posisi titik sentuhan jari di layar HP
+            const touch = e.touches[0];
+            contextMenu.style.top = `${touch.clientY}px`;
+            contextMenu.style.left = `${touch.clientX}px`;
+            contextMenu.classList.remove("hidden");
+          }
+        }, 600);
+      },
+      { passive: false },
+    );
+
+    // Jika jari digerakkan (scrolling) atau diangkat sebelum 600ms, batalkan aksi tahan lama
+    element.addEventListener("touchmove", () => {
+      clearTimeout(touchTimeout);
+    });
+
+    element.addEventListener("touchend", () => {
+      clearTimeout(touchTimeout);
+    });
 
     // ================= LOGIK SELEKSI (KLIK / CTRL + KLIK) =================
     element.addEventListener("click", (e) => {
@@ -1765,4 +1859,39 @@ function appendAiMessage(sender, text) {
   chatBox.scrollTop = chatBox.scrollHeight; // Auto scroll ke bawah
 
   return uniqueId;
+}
+
+// Letakkan kode ini di dalam listener DOMContentLoaded paling bawah di app.js Anda
+const btnToggleMenu = document.getElementById("btn-toggle-menu");
+const leftSidebar =
+  document.getElementById("left-sidebar") || document.querySelector("aside");
+
+if (btnToggleMenu && leftSidebar) {
+  btnToggleMenu.addEventListener("click", (e) => {
+    e.stopPropagation(); // Mencegah event bubbling
+
+    // Membuka atau menutup sidebar dengan memanipulasi class translasi Tailwind
+    if (leftSidebar.classList.contains("-translate-x-full")) {
+      leftSidebar.classList.remove("-translate-x-full");
+      leftSidebar.classList.add("translate-x-0");
+    } else {
+      leftSidebar.classList.remove("translate-x-0");
+      leftSidebar.classList.add("-translate-x-full");
+    }
+  });
+
+  // Opsional: Klik di area luar sidebar untuk menutup kembali sidebarnya saat di mobile
+  document.addEventListener("click", (e) => {
+    if (window.innerWidth < 768) {
+      // Hanya aktif di layar mobile
+      if (
+        !leftSidebar.contains(e.target) &&
+        e.target !== btnToggleMenu &&
+        !btnToggleMenu.contains(e.target)
+      ) {
+        leftSidebar.classList.remove("translate-x-0");
+        leftSidebar.classList.add("-translate-x-full");
+      }
+    }
+  });
 }
