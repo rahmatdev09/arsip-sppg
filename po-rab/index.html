@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Konversi Form PO ke RAB Terintegrasi</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Style-enabled SheetJS fork for pure client-side Excel exporting with borders and styling -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            .print-full-width {
+                width: 100% !important;
+                max-width: 100% !important;
+                box-shadow: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            body {
+                background-color: #ffffff;
+                color: #000000;
+            }
+            /* Menyesuaikan tampilan cetak persis kertas kerja excel */
+            .excel-style-table {
+                border-collapse: collapse !important;
+                width: 100% !important;
+            }
+            .excel-style-table th, .excel-style-table td {
+                border: 1px solid #000000 !important;
+                color: #000000 !important;
+                padding: 4px 6px !important;
+            }
+            .excel-header-text {
+                font-family: 'Courier New', Courier, monospace !important;
+                color: #000000 !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen">
+
+    <!-- Header / Navigation -->
+    <header class="bg-gradient-to-r from-blue-800 to-indigo-900 text-white shadow-lg no-print">
+        <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-white/10 p-2 rounded-xl backdrop-blur-sm border border-white/20">
+                    <i data-lucide="receipt" class="w-8 h-8 text-emerald-400"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-extrabold tracking-tight">PO &rarr; RAB Smart Excel Converter</h1>
+                    <p class="text-xs text-blue-200">Konversi instan Purchase Order menjadi template RAB standard XLSX dengan Borders Lengkap</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="loadSampleData()" class="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 transition px-3 py-2 rounded-lg text-xs font-semibold border border-white/10">
+                    <i data-lucide="file-text" class="w-4 h-4"></i> Muat Data PO Hari Ini
+                </button>
+                <button onclick="exportToExcel()" class="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 transition px-3 py-2 rounded-lg text-xs font-semibold shadow-md">
+                    <i data-lucide="download" class="w-4 h-4"></i> Unduh File Excel (.xlsx)
+                </button>
+                <button onclick="window.print()" class="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 transition px-3 py-2 rounded-lg text-xs font-semibold shadow-md">
+                    <i data-lucide="printer" class="w-4 h-4"></i> Cetak Dokumen RAB
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+        
+        <!-- Top Statistics Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 print-full-width no-print">
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+                <div>
+                    <p class="text-xs text-slate-500 font-bold uppercase tracking-wider">Total Anggaran Pagu</p>
+                    <h3 id="stat-total-pagu" class="text-xl font-extrabold text-blue-600 mt-1">Rp 0</h3>
+                </div>
+                <div class="p-2.5 bg-blue-50 text-blue-600 rounded-lg">
+                    <i data-lucide="wallet" class="w-5 h-5"></i>
+                </div>
+            </div>
+            
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+                <div>
+                    <p class="text-xs text-slate-500 font-bold uppercase tracking-wider">Total Belanja Pokok</p>
+                    <h3 id="stat-total-belanja" class="text-xl font-extrabold text-amber-600 mt-1">Rp 0</h3>
+                </div>
+                <div class="p-2.5 bg-amber-50 text-amber-600 rounded-lg">
+                    <i data-lucide="shopping-cart" class="w-5 h-5"></i>
+                </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+                <div>
+                    <p class="text-xs text-slate-500 font-bold uppercase tracking-wider">Sisa Keuntungan (Margin)</p>
+                    <h3 id="stat-selisih" class="text-xl font-extrabold text-emerald-600 mt-1">Rp 0</h3>
+                </div>
+                <div id="stat-selisih-bg" class="p-2.5 bg-emerald-50 text-emerald-600 rounded-lg">
+                    <i data-lucide="trending-up" class="w-5 h-5"></i>
+                </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+                <div>
+                    <p class="text-xs text-slate-500 font-bold uppercase tracking-wider">Rasio Efisiensi</p>
+                    <h3 id="stat-rasio" class="text-xl font-extrabold text-slate-700 mt-1">0%</h3>
+                </div>
+                <div class="p-2.5 bg-slate-100 text-slate-600 rounded-lg">
+                    <i data-lucide="percent" class="w-5 h-5"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6 no-print">
+            <!-- Left: Raw Input Area -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col gap-4">
+                <div>
+                    <h2 class="text-md font-extrabold text-slate-900 flex items-center gap-2">
+                        <i data-lucide="file-input" class="text-blue-600 w-5 h-5"></i> Input Berkas PO
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-1">Tempel data dari Excel atau unggah berkas CSV PO Anda.</p>
+                </div>
+
+                <div class="border-2 border-dashed border-slate-200 rounded-xl p-3 text-center hover:border-blue-400 transition cursor-pointer relative">
+                    <input type="file" id="csv-file-input" accept=".csv" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onchange="handleFileSelect(event)">
+                    <div class="flex flex-col items-center gap-1 pointer-events-none">
+                        <i data-lucide="upload-cloud" class="w-6 h-6 text-slate-400"></i>
+                        <span class="text-xs font-bold text-slate-600">Unggah File CSV PO</span>
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-1">
+                    <div class="flex justify-between items-center">
+                        <label class="text-xs font-bold text-slate-700">Teks Mentah Tabel PO:</label>
+                        <button onclick="clearRawText()" class="text-[10px] text-red-500 hover:underline">Clear</button>
+                    </div>
+                    <textarea id="po-raw-data" rows="11" placeholder="Salin baris Excel di sini..." class="w-full p-2.5 border border-slate-200 rounded-xl text-[11px] font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"></textarea>
+                </div>
+
+                <button onclick="parseRawPO()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-xl transition flex items-center justify-center gap-2 text-sm">
+                    <i data-lucide="refresh-cw" class="w-4 h-4"></i> Proses & Buat RAB
+                </button>
+            </div>
+
+            <!-- Right: Metadata & Siswa Config -->
+            <div class="lg:col-span-2 flex flex-col gap-6">
+                <!-- Config Card -->
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col gap-4">
+                    <h2 class="text-md font-extrabold text-slate-900 flex items-center gap-2">
+                        <i data-lucide="sliders" class="text-indigo-600 w-5 h-5"></i> Identitas & Konfigurasi Anggaran
+                    </h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">Hari / Tanggal RAB</label>
+                            <input type="text" id="rab-date" value="JUM'AT, 19 JUNI 2026" class="w-full p-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">Menu Hidangan Hari Ini</label>
+                            <input type="text" id="rab-menu" value="Nasi Putih, Ikan Dori Crispy Saus Asam Manis, Tahu Goreng, Wortel Rebus, Naga" class="w-full p-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                        </div>
+                    </div>
+
+                    <hr class="border-slate-100">
+
+                    <!-- Pagu & Siswa Calculator -->
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                <i data-lucide="users" class="w-4 h-4 text-emerald-500"></i> Distribusi Pagu Penerima (Siswa)
+                            </h3>
+                            <button onclick="addPaguRow()" class="text-[10px] bg-emerald-50 hover:bg-emerald-100 text-emerald-600 font-bold px-2 py-1 rounded-md flex items-center gap-1 border border-emerald-200 transition">
+                                <i data-lucide="plus" class="w-3 h-3"></i> Tambah Instansi
+                            </button>
+                        </div>
+                        <div class="overflow-x-auto max-h-40 overflow-y-auto border border-slate-100 rounded-lg">
+                            <table class="w-full text-left text-[11px]">
+                                <thead class="bg-slate-50 text-slate-500 uppercase font-bold sticky top-0">
+                                    <tr>
+                                        <th class="p-2">Nama Sekolah / Kelompok</th>
+                                        <th class="p-2 w-20">Porsi</th>
+                                        <th class="p-2 w-20 text-right">Jumlah Siswa</th>
+                                        <th class="p-2 w-24 text-right">Pagu/Siswa</th>
+                                        <th class="p-2 w-24 text-right">Subtotal</th>
+                                        <th class="p-2 w-10 text-center">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="pagu-table-body" class="divide-y divide-slate-100">
+                                    <!-- Dynamic Rows -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Supplier visual breakdown -->
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                    <h2 class="text-xs font-bold text-slate-900 mb-3 flex items-center gap-2">
+                        <i data-lucide="pie-chart" class="text-purple-600 w-4 h-4"></i> Grafik Pembagian Belanja per Supplier
+                    </h2>
+                    <div class="flex flex-col md:flex-row items-center gap-6 justify-around">
+                        <div class="w-32 h-32">
+                            <canvas id="supplierChart"></canvas>
+                        </div>
+                        <div class="flex-1">
+                            <div id="chart-legend-container" class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10px] text-slate-600">
+                                <!-- Legend generated dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PRINTABLE & EDITABLE SHEET CONTAINER -->
+        <div class="bg-white p-8 rounded-xl shadow-md border border-slate-200 print-full-width relative">
+            
+            <!-- BUTTONS OVERLAY IN WEB WORKSPACE -->
+            <div class="no-print absolute top-4 right-4 flex gap-2">
+                <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 transition shadow-sm">
+                    <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i> Ekspor Excel (.xlsx)
+                </button>
+                <button onclick="window.print()" class="bg-slate-800 hover:bg-slate-950 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 transition shadow-sm">
+                    <i data-lucide="printer" class="w-3.5 h-3.5"></i> Cetak Dokumen
+                </button>
+            </div>
+
+            <!-- EXCEL SHEET HEADER -->
+            <div class="text-center pb-4 mb-4 border-b border-slate-200">
+                <h1 class="text-sm md:text-base font-extrabold uppercase tracking-wide text-slate-950 excel-header-text">
+                    RENCANA ANGGARAN BELANJA (RAB) BAHAN BAKU HARIAN
+                </h1>
+                <h2 class="text-xs md:text-sm font-bold uppercase text-slate-900 excel-header-text mt-0.5">
+                    SPPG OGAN ILIR TANJUNG PERING 2
+                </h2>
+                <h3 class="text-xs md:text-sm font-bold uppercase text-slate-800 excel-header-text mt-0.5">
+                    YAYASAN KEMALA BHAYANGKARI
+                </h3>
+                
+                <div class="mt-4 flex flex-col items-start gap-0.5 text-xs font-bold text-slate-900 text-left w-fit mx-auto md:mx-0">
+                    <div>HARI : <span id="sheet-date-display" class="font-extrabold">JUM'AT, 19 JUNI 2026</span></div>
+                    <div>MENU : <span id="sheet-menu-display" class="italic font-normal">Nasi Putih, Ikan Dori Crispy Saus Asam Manis, Tahu Goreng, Wortel Rebus, Naga</span></div>
+                </div>
+            </div>
+
+            <!-- INTERACTIVE INLINE SHEET EDITOR -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs excel-style-table border-collapse border border-slate-300">
+                    <thead class="bg-slate-50 text-slate-900 font-bold uppercase tracking-wider text-[11px] border-b-2 border-slate-950">
+                        <tr>
+                            <th class="border border-slate-300 p-2 w-12 text-center">No.</th>
+                            <th class="border border-slate-300 p-2">URAIAN</th>
+                            <th class="border border-slate-300 p-2 w-24 text-right">QTY</th>
+                            <th class="border border-slate-300 p-2 w-28">SATUAN</th>
+                            <th class="border border-slate-300 p-2 w-28 text-right">Harga</th>
+                            <th class="border border-slate-300 p-2 w-32 text-right">Total HARGA</th>
+                            <th class="border border-slate-300 p-2 w-36">KETERANGAN</th>
+                            <th class="border border-slate-300 p-2 w-12 text-center no-print">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rab-flat-table-body" class="divide-y divide-slate-200">
+                        <!-- Items rendered here sequentially -->
+                    </tbody>
+                    <tfoot>
+                        <!-- TOTAL BELANJA -->
+                        <tr class="bg-slate-100 font-extrabold text-slate-950 border-t-2 border-slate-950">
+                            <td colspan="5" class="border border-slate-300 p-2.5 text-right uppercase tracking-wider text-[11px]">Total Belanja Pokok</td>
+                            <td id="sheet-total-belanja" class="border border-slate-300 p-2.5 text-right font-mono text-xs font-black">Rp 0</td>
+                            <td class="border border-slate-300 p-2.5"></td>
+                            <td class="border border-slate-300 p-2.5 no-print"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <!-- Add Item Button -->
+            <div class="no-print mt-3 flex justify-end gap-2">
+                <button onclick="addNewFlatItem()" class="bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 border border-slate-300 transition">
+                    <i data-lucide="plus" class="w-3.5 h-3.5"></i> Tambah Item Belanja Baru
+                </button>
+            </div>
+
+            <!-- BOTTOM METADATA: DISTRIBUSI SISWA & UNTUNG MARGIN -->
+            <div class="mt-8 border-t border-slate-300 pt-6">
+                <div class="max-w-2xl">
+                    <h3 class="text-xs font-extrabold uppercase tracking-wide text-slate-900 mb-2 excel-header-text">
+                        Kalkulasi Anggaran Distribusi & Keuntungan
+                    </h3>
+                    <table class="w-full text-xs excel-style-table border border-slate-300">
+                        <thead class="bg-slate-50 font-bold uppercase text-[10px]">
+                            <tr>
+                                <th class="border border-slate-300 p-1.5">KET (Sekolah / Penerima)</th>
+                                <th class="border border-slate-300 p-1.5 w-20">Porsi</th>
+                                <th class="border border-slate-300 p-1.5 w-20 text-right">SISWA</th>
+                                <th class="border border-slate-300 p-1.5 w-24 text-right">PAGU (Rp)</th>
+                                <th class="border border-slate-300 p-1.5 w-28 text-right">TOTAL (Rp)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sheet-pagu-body">
+                            <!-- Syncs directly with top configs -->
+                        </tbody>
+                        <tfoot>
+                            <tr class="font-extrabold bg-slate-50 text-slate-900">
+                                <td colspan="4" class="border border-slate-300 p-2 text-right uppercase">Total Anggaran Pagu</td>
+                                <td id="sheet-pagu-total" class="border border-slate-300 p-2 text-right font-mono text-xs">Rp 0</td>
+                            </tr>
+                            <tr class="font-black bg-emerald-50 text-emerald-950 border-t-2 border-slate-950">
+                                <td colspan="4" class="border border-slate-300 p-2 text-right uppercase">Sisa Keuntungan (Margin)</td>
+                                <td id="sheet-pagu-margin" class="border border-slate-300 p-2 text-right font-mono text-sm text-emerald-700">Rp 0</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <!-- SIGNATURES (TAMPIL KHUSUS UNTUK CETAKAN RESMI) -->
+            <div class="mt-12 grid grid-cols-3 text-center text-[11px] text-slate-800 gap-4 print:mt-16">
+                <div>
+                    <p class="font-medium text-slate-500">Dibuat Oleh,</p>
+                    <div class="h-16"></div>
+                    <p class="font-bold text-slate-900 underline uppercase">Pengelola Pembelanjaan (PO)</p>
+                    <p class="text-slate-500 text-[10px]">Staff Logistik Harian</p>
+                </div>
+                <div>
+                    <p class="font-medium text-slate-500">Diperiksa Oleh,</p>
+                    <div class="h-16"></div>
+                    <p class="font-bold text-slate-900 underline uppercase">Koordinator Program</p>
+                    <p class="text-slate-500 text-[10px]">Supervisi Keuangan & Pagu</p>
+                </div>
+                <div>
+                    <p class="font-medium text-slate-500">Disetujui Oleh,</p>
+                    <div class="h-16"></div>
+                    <p class="font-bold text-slate-900 underline uppercase">Penanggung Jawab Wilayah</p>
+                    <p class="text-slate-500 text-[10px]">Yayasan Distribusi</p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Global Notification Banner -->
+    <div id="toast-banner" class="fixed bottom-5 right-5 bg-slate-900 text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 transform translate-y-20 opacity-0 transition duration-300 pointer-events-none no-print z-50">
+        <i data-lucide="info" class="w-4 h-4 text-emerald-400"></i>
+        <span id="toast-message">Notifikasi sistem aktif.</span>
+    </div>
+
+    <!-- Core App Logic -->
+    <script>
+        // Global State
+        let rabState = {
+            date: "JUM'AT, 19 JUNI 2026",
+            menu: "Nasi Putih, Ikan Dori Crispy Saus Asam Manis, Tahu Goreng, Wortel Rebus, Naga",
+            paguDistribusi: [
+                { id: "s-1", nama: "SMK Nurul Huda", porsi: "Besar", siswa: 187, paguPerSiswa: 10000 },
+                { id: "s-2", nama: "SDN 1 Pemulutan", porsi: "Kecil", siswa: 230, paguPerSiswa: 8000 },
+                { id: "s-3", nama: "SMPN 2 Muara Dua", porsi: "Sedang", siswa: 155, paguPerSiswa: 9000 },
+                { id: "s-4", nama: "Yayasan KB", porsi: "Sedang", siswa: 120, paguPerSiswa: 9500 }
+            ],
+            // Flat list of RAB items
+            items: []
+        };
+
+        let activeChart = null;
+
+        // Sample Data taken exactly from PO.csv
+        const sampleRawPOText = `,,,,,,\r
+JUM'AT 19 JUNI 2026,,,,,,\r
+"Nasi Putih, Ikan Dori Crispy Saus Asam Manis, Tahu Goreng, Wortel Rebus, Naga",,,,,,\r
+NO,BAHAN MAKANAN,MEREK,HARGA,KEBUTUHAN,KETERANGAN,TOTAL,S,TS\r
+,SUPLAYER YULIATI,,,,,,\r
+,Beras,," Rp15,000.00 ",160,kg (8 karung)1 krg 20 kg," Rp2,400,000.00 ",,\r
+,Bawang Putih,," Rp38,000.00 ",4,kg," Rp152,000.00 ",,\r
+,Bawang Merah,," Rp35,000.00 ",3,kg," Rp105,000.00 ",,\r
+,Bawang Bombay,," Rp32,000.00 ",6,kg," Rp192,000.00 ",,\r
+,Ikan Dori,," Rp40,000.00 ",260,kg ," Rp10,400,000.00 ",,\r
+,Tomat,," Rp17,000.00 ",30,kg," Rp510,000.00 ",,\r
+,Wortel,," Rp17,000.00 ",40,kg," Rp680,000.00 ",,\r
+,Total,,,,," Rp14,439,000.00 ",,\r
+,KOPERASI,,Nasi Putih,,,,\r
+,Minyak Goreng,," Rp24,000.00 ",48,pcs ( 2 dus)," Rp1,152,000.00 ",,\r
+,Tahu,," Rp1,200.00 ",1280,pcs," Rp1,536,000.00 ",,\r
+,Saus Tomat,," Rp33,000.00 ",5,kg," Rp165,000.00 ",,\r
+,Saus Sambal,," Rp33,000.00 ",5,kg," Rp165,000.00 ",,\r
+,Saus Tiram,," Rp55,000.00 ",2,btl," Rp110,000.00 ",,\r
+,Naga,," Rp30,000.00 ",165,kg," Rp4,950,000.00 ",,\r
+,Kecap Sedap,," Rp20,000.00 ",10,pcs," Rp200,000.00 ",,\r
+,Tepung Maizena,," Rp20,000.00 ",5,bks," Rp100,000.00 ",,\r
+,Tepung Terigu,," Rp15,000.00 ",10,kg," Rp150,000.00 ",,\r
+,Garam Halus,," Rp3,000.00 ",25,bks," Rp75,000.00 ",,\r
+,Kaldu Jamur,," Rp15,000.00 ",30,bks," Rp450,000.00 ",,\r
+,Total,,,,," Rp9,153,000.00 ",,\r
+,Total PO Hari Ini,,,,," Rp23,592,000.00 ",,`;
+
+        // Initialize Application
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            
+            // Sync Meta Inputs dynamically
+            document.getElementById('rab-date').addEventListener('input', (e) => {
+                rabState.date = e.target.value;
+                document.getElementById('sheet-date-display').textContent = e.target.value;
+            });
+
+            document.getElementById('rab-menu').addEventListener('input', (e) => {
+                rabState.menu = e.target.value;
+                document.getElementById('sheet-menu-display').textContent = e.target.value;
+            });
+
+            // Default: Load sample
+            loadSampleData();
+        });
+
+        // Load Sample Data
+        function loadSampleData() {
+            document.getElementById('po-raw-data').value = sampleRawPOText;
+            document.getElementById('rab-date').value = "JUM'AT, 19 JUNI 2026";
+            document.getElementById('rab-menu').value = "Nasi Putih, Ikan Dori Crispy Saus Asam Manis, Tahu Goreng, Wortel Rebus, Naga";
+            
+            document.getElementById('sheet-date-display').textContent = "JUM'AT, 19 JUNI 2026";
+            document.getElementById('sheet-menu-display').textContent = "Nasi Putih, Ikan Dori Crispy Saus Asam Manis, Tahu Goreng, Wortel Rebus, Naga";
+            
+            parseRawPO();
+            showToast("Data contoh PO berhasil dimuat!");
+        }
+
+        function clearRawText() {
+            document.getElementById('po-raw-data').value = "";
+            showToast("Form input dibersihkan.");
+        }
+
+        // File Handler
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                document.getElementById('po-raw-data').value = text;
+                parseRawPO();
+                showToast(`File ${file.name} berhasil dibaca!`);
+            };
+            reader.readAsText(file);
+        }
+
+        // Parser Pintar CSV dengan Tanda Kutip (RFC 4180)
+        function parseCSVLine(text) {
+            let insideQuote = false;
+            let entries = [];
+            let builder = '';
+            
+            for (let i = 0; i < text.length; i++) {
+                let char = text[i];
+                if (char === '"') {
+                    insideQuote = !insideQuote;
+                } else if (char === ',' && !insideQuote) {
+                    entries.push(builder.trim());
+                    builder = '';
+                } else {
+                    builder += char;
+                }
+            }
+            entries.push(builder.trim());
+            return entries;
+        }
+
+        // Sanitasi Angka Mata Uang Rupiah yang Sangat Kuat
+        function cleanNumber(str) {
+            if (!str) return 0;
+            // Hapus lambang mata uang dan spasi
+            let clean = str.replace(/[RrpP\s]/g, '');
+            
+            // Periksa format desimal dan ribuan
+            if (clean.includes('.') && clean.includes(',')) {
+                if (clean.indexOf(',') < clean.indexOf('.')) {
+                    clean = clean.replace(/,/g, '');
+                } else {
+                    clean = clean.replace(/\./g, '').replace(/,/g, '.');
+                }
+            } else if (clean.includes(',')) {
+                const parts = clean.split(',');
+                if (parts[1].length === 3) {
+                    clean = clean.replace(/,/g, '');
+                } else {
+                    clean = clean.replace(/,/g, '.');
+                }
+            } else if (clean.includes('.')) {
+                const parts = clean.split('.');
+                if (parts.length > 2 || (parts.length === 2 && parts[1].length === 3)) {
+                    clean = clean.replace(/\./g, '');
+                }
+            }
+            
+            let val = parseFloat(clean);
+            return isNaN(val) ? 0 : val;
+        }
+
+        // Parser Core Engine untuk mengurai PO ke RAB
+        function parseRawPO() {
+            const rawText = document.getElementById('po-raw-data').value;
+            if (!rawText.trim()) {
+                showToast("Data mentah kosong. Silakan isi terlebih dahulu.", true);
+                return;
+            }
+
+            // Reset items
+            rabState.items = [];
+            
+            const lines = rawText.split('\n');
+            let currentSupplier = "LAIN-LAIN / UMUM";
+            let foundDate = false;
+            let foundMenu = false;
+
+            lines.forEach((line) => {
+                const cleanLine = line.trim();
+                if (!cleanLine) return;
+
+                // Cek baris meta tanggal
+                if (!foundDate && (cleanLine.toLowerCase().includes('juni') || cleanLine.toLowerCase().includes('april') || /\d{2,4}/.test(cleanLine)) && cleanLine.split(',').length < 5) {
+                    const cleanDate = cleanLine.replace(/^[,\s"]+|[,\s"]+$/g, '');
+                    if (cleanDate.length > 5 && cleanDate.length < 40) {
+                        document.getElementById('rab-date').value = cleanDate;
+                        rabState.date = cleanDate;
+                        document.getElementById('sheet-date-display').textContent = cleanDate;
+                        foundDate = true;
+                        return;
+                    }
+                }
+
+                // Cek baris meta menu
+                if (!foundMenu && (cleanLine.toLowerCase().includes('nasi') || cleanLine.toLowerCase().includes('menu')) && cleanLine.split(',').length >= 2 && cleanLine.split(',').length < 15) {
+                    const cleanMenu = cleanLine.replace(/^[,\s"']+|[,\s"']+$/g, '');
+                    document.getElementById('rab-menu').value = cleanMenu;
+                    rabState.menu = cleanMenu;
+                    document.getElementById('sheet-menu-display').textContent = cleanMenu;
+                    foundMenu = true;
+                    return;
+                }
+
+                // Gunakan parser CSV RFC 4180
+                const cols = parseCSVLine(line).map(c => c.trim());
+
+                // DETEKSI SUPPLIER / KATEGORI SECARA DINAMIS (Koperasi & Suplayer Yuliati)
+                // Deteksi diperbaiki agar KOPERASI terdeteksi walaupun ada tulisan "Nasi Putih" di kanan kolomnya
+                if (cols.length >= 2) {
+                    const col1Val = cols[1] ? cols[1].toUpperCase() : "";
+                    const isSupplierKeyword = col1Val.includes("SUPLAYER") || col1Val.includes("SUPPLAYER") || col1Val === "KOPERASI" || col1Val.startsWith("KOPERASI");
+                    
+                    if (col1Val !== "" && isSupplierKeyword && !col1Val.includes("TOTAL") && !col1Val.includes("HARI INI")) {
+                        currentSupplier = col1Val;
+                        return;
+                    }
+                }
+
+                // Membaca item bahan pangan berdasarkan format kolom PO.csv baru
+                if (cols.length >= 6) {
+                    const bahan = cols[1];
+                    const merek = cols[2] || "";
+                    const rawHarga = cols[3];
+                    const rawKebutuhan = cols[4];
+                    const satuan = cols[5] || "pcs";
+
+                    // Saring agar tidak memasukkan baris total/subtotal, header, atau baris kosong
+                    if (bahan && 
+                        !bahan.toUpperCase().includes("TOTAL") && 
+                        !bahan.toUpperCase().includes("BAHAN MAKANAN") && 
+                        !bahan.toUpperCase().includes("SUPLAYER") && 
+                        !bahan.toUpperCase().includes("KOPERASI") && 
+                        bahan !== "NO") {
+                        
+                        const harga = cleanNumber(rawHarga);
+                        const kebutuhan = cleanNumber(rawKebutuhan);
+
+                        // Masukkan hanya jika datanya valid
+                        if (harga >= 0 && kebutuhan > 0) {
+                            rabState.items.push({
+                                id: generateID(),
+                                supplier: currentSupplier,
+                                bahan: bahan,
+                                merek: merek,
+                                harga: harga,
+                                kebutuhan: kebutuhan,
+                                satuan: satuan
+                            });
+                        }
+                    }
+                }
+            });
+
+            // Jika tidak ada item terdeteksi, set default
+            if (rabState.items.length === 0) {
+                rabState.items.push({
+                    id: generateID(),
+                    supplier: "SUPLAYER YULIATI",
+                    bahan: "Beras",
+                    merek: "",
+                    harga: 15000,
+                    kebutuhan: 160,
+                    satuan: "kg"
+                });
+            }
+
+            renderPaguTable();
+            renderRABFlatTable();
+            recalculateSummary();
+            showToast("Sukses menyusun ulang data PO ke RAB!");
+        }
+
+        // Render Pagu Config Table
+        function renderPaguTable() {
+            const tbody = document.getElementById('pagu-table-body');
+            tbody.innerHTML = '';
+
+            rabState.paguDistribusi.forEach((row) => {
+                const subtotal = row.siswa * row.paguPerSiswa;
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition';
+                tr.innerHTML = `
+                    <td class="p-2">
+                        <input type="text" value="${row.nama}" onchange="updatePaguField('${row.id}', 'nama', this.value)" class="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 focus:outline-none py-0.5 font-semibold text-slate-800">
+                    </td>
+                    <td class="p-2">
+                        <select onchange="updatePaguField('${row.id}', 'porsi', this.value)" class="bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 focus:outline-none py-0.5 text-slate-700 w-full">
+                            <option value="Besar" ${row.porsi === "Besar" ? "selected" : ""}>Besar</option>
+                            <option value="Sedang" ${row.porsi === "Sedang" ? "selected" : ""}>Sedang</option>
+                            <option value="Kecil" ${row.porsi === "Kecil" ? "selected" : ""}>Kecil</option>
+                        </select>
+                    </td>
+                    <td class="p-2 text-right">
+                        <input type="number" value="${row.siswa}" onchange="updatePaguField('${row.id}', 'siswa', parseInt(this.value) || 0)" class="w-16 text-right bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 focus:outline-none py-0.5">
+                    </td>
+                    <td class="p-2 text-right">
+                        <input type="number" value="${row.paguPerSiswa}" onchange="updatePaguField('${row.id}', 'paguPerSiswa', parseFloat(this.value) || 0)" class="w-20 text-right bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 focus:outline-none py-0.5 font-mono text-xs">
+                    </td>
+                    <td class="p-2 text-right font-bold text-slate-900 font-mono text-xs">
+                        ${formatRupiah(subtotal)}
+                    </td>
+                    <td class="p-2 text-center">
+                        <button onclick="removePaguRow('${row.id}')" class="text-red-500 hover:text-red-700 p-0.5 rounded hover:bg-red-50 transition">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            lucide.createIcons();
+            renderSheetPagu();
+        }
+
+        // Syncs the exact bottom excel-like distribution table
+        function renderSheetPagu() {
+            const tbody = document.getElementById('sheet-pagu-body');
+            tbody.innerHTML = '';
+
+            rabState.paguDistribusi.forEach((row) => {
+                const subtotal = row.siswa * row.paguPerSiswa;
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="border border-slate-300 p-1.5 font-medium">${row.nama}</td>
+                    <td class="border border-slate-300 p-1.5 text-center">${row.porsi}</td>
+                    <td class="border border-slate-300 p-1.5 text-right font-mono">${row.siswa}</td>
+                    <td class="border border-slate-300 p-1.5 text-right font-mono">${formatRupiahNoSymbol(row.paguPerSiswa)}</td>
+                    <td class="border border-slate-300 p-1.5 text-right font-mono font-bold">${formatRupiah(subtotal)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Update Fields on Pagu Table
+        function updatePaguField(id, field, value) {
+            const idx = rabState.paguDistribusi.findIndex(item => item.id === id);
+            if (idx !== -1) {
+                rabState.paguDistribusi[idx][field] = value;
+                renderPaguTable();
+                recalculateSummary();
+            }
+        }
+
+        function addPaguRow() {
+            rabState.paguDistribusi.push({
+                id: generateID(),
+                nama: "Grup Instansi Baru",
+                porsi: "Sedang",
+                siswa: 100,
+                paguPerSiswa: 9000
+            });
+            renderPaguTable();
+            recalculateSummary();
+            showToast("Distribusi pagu sasaran baru berhasil ditambahkan.");
+        }
+
+        function removePaguRow(id) {
+            rabState.paguDistribusi = rabState.paguDistribusi.filter(item => item.id !== id);
+            renderPaguTable();
+            recalculateSummary();
+        }
+
+        // Render Flat RAB Table (Sama Persis Format Excel)
+        function renderRABFlatTable() {
+            const tbody = document.getElementById('rab-flat-table-body');
+            tbody.innerHTML = '';
+
+            rabState.items.forEach((item, idx) => {
+                const totalHarga = item.harga * item.kebutuhan;
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition print:hover:bg-transparent";
+                tr.innerHTML = `
+                    <td class="border border-slate-300 p-1.5 text-center font-mono text-slate-500">${idx + 1}</td>
+                    <td class="border border-slate-300 p-1.5">
+                        <input type="text" value="${item.bahan}" onchange="updateFlatItemField('${item.id}', 'bahan', this.value)" class="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 focus:outline-none py-0.5 font-medium text-slate-900 text-xs">
+                    </td>
+                    <td class="border border-slate-300 p-1.5 text-right">
+                        <input type="number" step="any" value="${item.kebutuhan}" onchange="updateFlatItemField('${item.id}', 'kebutuhan', parseFloat(this.value) || 0)" class="w-20 text-right bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 focus:outline-none py-0.5 font-mono text-xs">
+                    </td>
+                    <td class="border border-slate-300 p-1.5">
+                        <input type="text" value="${item.satuan}" onchange="updateFlatItemField('${item.id}', 'satuan', this.value)" class="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 focus:outline-none py-0.5 text-slate-800 text-xs">
+                    </td>
+                    <td class="border border-slate-300 p-1.5 text-right">
+                        <input type="number" value="${item.harga}" onchange="updateFlatItemField('${item.id}', 'harga', parseFloat(this.value) || 0)" class="w-24 text-right bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 focus:outline-none py-0.5 font-mono text-xs">
+                    </td>
+                    <td class="border border-slate-300 p-1.5 text-right font-bold font-mono text-slate-950 text-xs">
+                        ${formatRupiah(totalHarga)}
+                    </td>
+                    <td class="border border-slate-300 p-1.5">
+                        <input type="text" value="${item.merek}" onchange="updateFlatItemField('${item.id}', 'merek', this.value)" placeholder="Keterangan merek" class="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 focus:outline-none py-0.5 text-slate-600 text-xs">
+                    </td>
+                    <td class="border border-slate-300 p-1.5 text-center no-print">
+                        <button onclick="removeFlatItem('${item.id}')" class="text-red-400 hover:text-red-600 p-1 rounded transition">
+                            <i data-lucide="x" class="w-4 h-4"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            lucide.createIcons();
+        }
+
+        // Add/Update Flat Items
+        function updateFlatItemField(id, field, value) {
+            const idx = rabState.items.findIndex(i => i.id === id);
+            if (idx !== -1) {
+                rabState.items[idx][field] = value;
+                recalculateSummary();
+                document.getElementById('sheet-total-belanja').textContent = formatRupiah(calculateTotalBelanja());
+            }
+        }
+
+        // Mengatur grup supplier secara default bagi item manual baru
+        function addNewFlatItem() {
+            rabState.items.push({
+                id: generateID(),
+                supplier: "LAIN-LAIN / UMUM",
+                bahan: "Bahan Makanan Baru",
+                merek: "",
+                harga: 0,
+                kebutuhan: 0,
+                satuan: "kg"
+            });
+            renderRABFlatTable();
+            recalculateSummary();
+        }
+
+        function removeFlatItem(id) {
+            rabState.items = rabState.items.filter(i => i.id !== id);
+            renderRABFlatTable();
+            recalculateSummary();
+        }
+
+        function calculateTotalBelanja() {
+            return rabState.items.reduce((total, item) => total + (item.harga * item.kebutuhan), 0);
+        }
+
+        // Recalculate Summary & Charts
+        function recalculateSummary() {
+            // 1. Calculate Pagu Total
+            let totalPagu = 0;
+            rabState.paguDistribusi.forEach(item => {
+                totalPagu += item.siswa * item.paguPerSiswa;
+            });
+
+            // 2. Calculate Belanja Total
+            let totalBelanja = calculateTotalBelanja();
+
+            // Calculate Difference
+            const selisih = totalPagu - totalBelanja;
+            const rasio = totalPagu > 0 ? Math.round((totalBelanja / totalPagu) * 100) : 0;
+
+            // Sync State to UI Statistics Cards
+            document.getElementById('stat-total-pagu').textContent = formatRupiah(totalPagu);
+            document.getElementById('stat-total-belanja').textContent = formatRupiah(totalBelanja);
+            
+            const selisihEl = document.getElementById('stat-selisih');
+            const selisihBg = document.getElementById('stat-selisih-bg');
+            selisihEl.textContent = formatRupiah(selisih);
+
+            if (selisih >= 0) {
+                selisihEl.className = "text-xl font-extrabold text-emerald-600 mt-1";
+                selisihBg.className = "p-2.5 bg-emerald-50 text-emerald-600 rounded-lg";
+                document.getElementById('sheet-pagu-margin').className = "border border-slate-300 p-2 text-right font-mono text-sm text-emerald-700 font-extrabold";
+            } else {
+                selisihEl.className = "text-xl font-extrabold text-red-600 mt-1";
+                selisihBg.className = "p-2.5 bg-red-50 text-red-600 rounded-lg";
+                document.getElementById('sheet-pagu-margin').className = "border border-slate-300 p-2 text-right font-mono text-sm text-red-600 font-extrabold";
+            }
+
+            document.getElementById('stat-rasio').textContent = `${rasio}%`;
+
+            // Sync Sheet Calculations
+            document.getElementById('sheet-total-belanja').textContent = formatRupiah(totalBelanja);
+            document.getElementById('sheet-pagu-total').textContent = formatRupiah(totalPagu);
+            document.getElementById('sheet-pagu-margin').textContent = formatRupiah(selisih);
+
+            // Grouping for chart
+            let supplierChartData = {};
+            rabState.items.forEach(item => {
+                const sup = item.supplier || "LAIN-LAIN / UMUM";
+                supplierChartData[sup] = (supplierChartData[sup] || 0) + (item.harga * item.kebutuhan);
+            });
+
+            updateSupplierChart(supplierChartData);
+            renderSheetPagu();
+        }
+
+        // Update ChartJS
+        function updateSupplierChart(chartData) {
+            const labels = Object.keys(chartData);
+            const dataValues = Object.values(chartData);
+
+            const bgColors = [
+                '#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#3f3f46', '#06b6d4'
+            ];
+
+            const ctx = document.getElementById('supplierChart').getContext('2d');
+
+            if (activeChart) {
+                activeChart.destroy();
+            }
+
+            if (labels.length === 0 || dataValues.reduce((a,b) => a+b, 0) === 0) {
+                ctx.clearRect(0,0,100,100);
+                document.getElementById('chart-legend-container').innerHTML = `<p class="col-span-2 text-center text-slate-400">Tidak ada pengeluaran belanja terdeteksi.</p>`;
+                return;
+            }
+
+            activeChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: dataValues,
+                        backgroundColor: bgColors.slice(0, labels.length),
+                        borderWidth: 1,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+
+            // Update custom legend
+            const legendContainer = document.getElementById('chart-legend-container');
+            legendContainer.innerHTML = '';
+            
+            let total = dataValues.reduce((a,b) => a+b, 0);
+
+            labels.forEach((label, index) => {
+                const subVal = dataValues[index];
+                const pct = total > 0 ? Math.round((subVal / total) * 100) : 0;
+                
+                const legendItem = document.createElement('div');
+                legendItem.className = "flex items-center gap-1.5";
+                legendItem.innerHTML = `
+                    <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${bgColors[index]}"></span>
+                    <span class="truncate font-semibold text-slate-700">${label}</span>
+                    <span class="font-mono text-slate-400">(${pct}%)</span>
+                `;
+                legendContainer.appendChild(legendItem);
+            });
+        }
+
+        // Excel Export Logic (MENGGUNAKAN XLS-JS-STYLE UNTUK MEWARISI GARIS TABEL & WARNA)
+        function exportToExcel() {
+            // Persiapan array data sel Excel
+            let wsData = [
+                ["RENCANA ANGGARAN BELANJA (RAB) BAHAN BAKU HARIAN", "", "", "", "", "", ""],
+                ["SPPG OGAN ILIR TANJUNG PERING 2", "", "", "", "", "", ""],
+                ["YAYASAN KEMALA BHAYANGKARI", "", "", "", "", "", ""],
+                [`HARI : ${rabState.date.toUpperCase()}`, "", "", "", "", "", ""],
+                [`MENU : ${rabState.menu.toUpperCase()}`, "", "", "", "", "", ""],
+                [], // Baris kosong pembatas
+                ["No.", "URAIAN", "QTY", "SATUAN", "Harga", "Total HARGA", "KETERANGAN"]
+            ];
+
+            const itemStartRow = 7;
+            let totalBelanja = 0;
+            
+            // Masukkan item-item belanja harian
+            rabState.items.forEach((item, idx) => {
+                const itemTotal = item.harga * item.kebutuhan;
+                totalBelanja += itemTotal;
+                wsData.push([
+                    idx + 1,
+                    item.bahan,
+                    item.kebutuhan,
+                    item.satuan,
+                    item.harga,
+                    itemTotal,
+                    item.merek || ""
+                ]);
+            });
+
+            const totalBelanjaRow = wsData.length;
+            // Tambahkan baris total belanja
+            wsData.push(["Total", "", "", "", "", totalBelanja, ""]);
+            wsData.push([]); // Baris kosong pembatas
+            wsData.push([]); // Baris kosong pembatas
+
+            const paguHeaderRow = wsData.length;
+            // Tambahkan sub-tabel distribusi siswa di bagian bawah (persis format excel)
+            wsData.push(["", "KET", "Porsi", "SISWA", "PAGU", "TOTAL", ""]);
+            
+            const paguStartRow = wsData.length;
+            let totalPagu = 0;
+            rabState.paguDistribusi.forEach((row) => {
+                const pSubtotal = row.siswa * row.paguPerSiswa;
+                totalPagu += pSubtotal;
+                wsData.push([
+                    "",
+                    row.nama,
+                    row.porsi,
+                    row.siswa,
+                    row.paguPerSiswa,
+                    pSubtotal,
+                    ""
+                ]);
+            });
+
+            const totalPaguRow = wsData.length;
+            wsData.push(["", "Total Anggaran Pagu", "", "", "", totalPagu, ""]);
+            
+            const marginRow = wsData.length;
+            wsData.push(["", "Sisa Keuntungan (Margin)", "", "", "", totalPagu - totalBelanja, ""]);
+
+            // Buat Workbook & Worksheet
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+            // Styling lebar kolom agar tidak terpotong (###)
+            ws['!cols'] = [
+                { wch: 8 },  // No
+                { wch: 38 }, // Uraian / KET
+                { wch: 12 }, // Qty / Porsi
+                { wch: 15 }, // Satuan / Siswa
+                { wch: 16 }, // Harga / Pagu
+                { wch: 20 }, // Total / Total Pagu
+                { wch: 25 }  // Keterangan
+            ];
+
+            // Gabungkan (MERGE) sel judul utama dari kolom A s.d. G
+            ws['!merges'] = [
+                { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } }, // Baris 1
+                { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } }, // Baris 2
+                { s: { r: 2, c: 0 }, e: { r: 2, c: 6 } }, // Baris 3
+                { s: { r: 3, c: 0 }, e: { r: 3, c: 6 } }, // Baris Hari
+                { s: { r: 4, c: 0 }, e: { r: 4, c: 6 } }  // Baris Menu
+            ];
+
+            // Setup border hitam tipis untuk tabel
+            const borderGaya = {
+                top: { style: "thin", color: { rgb: "000000" } },
+                bottom: { style: "thin", color: { rgb: "000000" } },
+                left: { style: "thin", color: { rgb: "000000" } },
+                right: { style: "thin", color: { rgb: "000000" } }
+            };
+
+            // Loop untuk mewarnai, membuat borders, dan menyejajarkan teks/angka di Excel
+            for (const key in ws) {
+                if (key.startsWith('!')) continue;
+                const cell = ws[key];
+                const row = parseInt(key.replace(/[^0-9]/g, '')) - 1; // 0-based index
+                const colLetter = key.replace(/[0-9]/g, '');
+                const colIdx = colLetter.charCodeAt(0) - 65; // A=0, B=1, ...
+
+                // Inisialisasi properti style default
+                cell.s = {
+                    font: { name: "Arial", sz: 10 },
+                    alignment: { vertical: "center" }
+                };
+
+                // Styling Judul Atas (Baris 1 s.d. 5)
+                if (row >= 0 && row <= 4) {
+                    cell.s.font.bold = true;
+                    if (row < 3) {
+                        cell.s.font.sz = 12;
+                        cell.s.alignment.horizontal = "center";
+                    } else {
+                        cell.s.font.sz = 10;
+                        cell.s.alignment.horizontal = "left";
+                    }
+                    continue;
+                }
+
+                // 1. STYLING TABEL UTAMA BELANJA (Header s.d. Total)
+                if (row >= 6 && row <= totalBelanjaRow) {
+                    cell.s.border = borderGaya;
+
+                    // Header Tabel (Baris 6)
+                    if (row === 6) {
+                        cell.s.font.bold = true;
+                        cell.s.fill = { fgColor: { rgb: "EAEAEA" } }; // Abu-abu terang
+                        cell.s.alignment.horizontal = "center";
+                    } 
+                    // Baris Total Belanja Akhir
+                    else if (row === totalBelanjaRow) {
+                        cell.s.font.bold = true;
+                        cell.s.fill = { fgColor: { rgb: "F2F2F2" } };
+                        if (colIdx === 0) {
+                            cell.s.alignment.horizontal = "right";
+                        } else if (colIdx === 5) {
+                            cell.s.alignment.horizontal = "right";
+                        }
+                    } 
+                    // Baris Item Belanja Biasa
+                    else {
+                        if (colIdx === 0) cell.s.alignment.horizontal = "center"; // No.
+                        else if (colIdx === 1 || colIdx === 3 || colIdx === 6) cell.s.alignment.horizontal = "left"; // Teks
+                        else if (colIdx === 2 || colIdx === 4 || colIdx === 5) cell.s.alignment.horizontal = "right"; // Angka
+                    }
+
+                    // Pemformatan Mata Uang "Rp" di Excel untuk Harga & Total Harga
+                    if (row > 6 && (colIdx === 4 || colIdx === 5)) {
+                        cell.z = '"Rp"#,##0';
+                    }
+                    // Format Qty biasa
+                    if (row > 6 && colIdx === 2) {
+                        cell.z = '#,##0.##';
+                    }
+                }
+
+                // 2. STYLING TABEL PAGU / SISWA DI BAGIAN BAWAH
+                if (row >= paguHeaderRow && row <= marginRow) {
+                    // Batasi hanya kolom KET hingga TOTAL (Kolom B s.d F)
+                    if (colIdx >= 1 && colIdx <= 5) {
+                        cell.s.border = borderGaya;
+
+                        // Header Tabel Siswa
+                        if (row === paguHeaderRow) {
+                            cell.s.font.bold = true;
+                            cell.s.fill = { fgColor: { rgb: "EAEAEA" } };
+                            cell.s.alignment.horizontal = "center";
+                        }
+                        // Baris Total Pagu dan Margin Keuntungan
+                        else if (row === totalPaguRow || row === marginRow) {
+                            cell.s.font.bold = true;
+                            if (row === marginRow) {
+                                cell.s.fill = { fgColor: { rgb: "E8F5E9" } }; // Hijau lembut untuk profit
+                            } else {
+                                cell.s.fill = { fgColor: { rgb: "F2F2F2" } };
+                            }
+                            
+                            if (colIdx === 1) {
+                                cell.s.alignment.horizontal = "right";
+                            } else if (colIdx === 5) {
+                                cell.s.alignment.horizontal = "right";
+                            }
+                        }
+                        // Baris Data Sekolah Biasa
+                        else {
+                            if (colIdx === 1) cell.s.alignment.horizontal = "left"; // Nama sekolah
+                            else if (colIdx === 2) cell.s.alignment.horizontal = "center"; // Porsi
+                            else if (colIdx === 3) cell.s.alignment.horizontal = "right"; // Jumlah siswa
+                            else if (colIdx === 4 || colIdx === 5) cell.s.alignment.horizontal = "right"; // Pagu, Total
+                        }
+
+                        // Format angka rupiah untuk Pagu dan Subtotal Pagu
+                        if (row > paguHeaderRow && (colIdx === 4 || colIdx === 5)) {
+                            cell.z = '"Rp"#,##0';
+                        }
+                        // Format angka siswa
+                        if (row > paguHeaderRow && colIdx === 3) {
+                            cell.z = '#,##0';
+                        }
+                    }
+                }
+            }
+
+            // Pastikan gridlines bawaan excel diaktifkan juga
+            ws['!views'] = [{ showGridLines: true }];
+
+            XLSX.utils.book_append_sheet(wb, ws, "RAB Hari Ini");
+
+            // Unduh file excel dengan file name dinamis sesuai tanggal
+            const fileName = `RAB_Bahan_Baku_${rabState.date.replace(/[/\\?%*:|"<>]/g, '_')}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+            showToast("Sukses mengekspor file Excel (.xlsx) dengan Borders & Styles!");
+        }
+
+        // Formatter IDR
+        function formatRupiah(value) {
+            return new Intl.NumberFormat('id-ID', {
+                style: 'currency',
+                currency: 'IDR',
+                minimumFractionDigits: 0
+            }).format(value);
+        }
+
+        // Pemformatan angka biasa
+        function formatRupiahNoSymbol(value) {
+            return new Intl.NumberFormat('id-ID', {
+                minimumFractionDigits: 0
+            }).format(value);
+        }
+
+        // Toast Notification System
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast-banner');
+            const messageEl = document.getElementById('toast-message');
+            
+            messageEl.textContent = msg;
+            
+            if (isError) {
+                toast.classList.remove('bg-slate-900');
+                toast.classList.add('bg-red-600');
+            } else {
+                toast.classList.remove('bg-red-600');
+                toast.classList.add('bg-slate-900');
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // Helper random string generator
+        function generateID() {
+            return 'id-' + Math.random().toString(36).substr(2, 9);
+        }
+    </script>
+</body>
+</html>
